@@ -2,3 +2,4 @@ credentials.json
 *.json
 reminders.csv
 credentials.json
+*.pyc
