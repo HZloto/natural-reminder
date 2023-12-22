@@ -1,6 +1,6 @@
 credentials.json
 *.json
-reminders.csv
+reminders_db.csv
 credentials.json
 *.pyc
 .env

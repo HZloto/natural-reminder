@@ -1,12 +1,11 @@
 import os
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
+import os
 
-# Load environment variables
 load_dotenv()
+client = OpenAI(api_key=os.getenv('OPENAI'))
 
-# Set the OpenAI API key
-openai.api_key = os.getenv('OPENAI')
 
 def update_chat(messages, role, content):
     """Adds a message to the conversation history."""
@@ -15,13 +14,11 @@ def update_chat(messages, role, content):
 def get_chatgpt_response(messages):
     """Gets the response from GPT-4."""
     try:
-        response = openai.ChatCompletion.create(
-            response_format={ "type": "json_object" },
-            model="gpt-3.5-turbo-1106",
-            messages=messages,
-            max_tokens=150
-        )
-        return response['choices'][0]['message']['content']
+        response = client.chat.completions.create(response_format={ "type": "json_object" },
+        model="gpt-3.5-turbo-1106",
+        messages=messages,
+        max_tokens=150)
+        return response.choices[0].message.content
     except Exception as e:
         return f"Error in getting response: {e}"
 
@@ -34,11 +31,11 @@ def query_gpt_for_reminders(messages, prompt):
     # Attempt to parse the response
     try:
         parts = gpt_response.split(',')
-        action, reminder_name, reminder_date = (part.split(':')[1].strip() for part in parts)
+        action, reminder_name, reminder_date = (part.split(':')[1].strip().strip('\'"') for part in parts)
         return {
             "action": action,
             "reminder_name": reminder_name,
             "reminder_date": reminder_date
         }
     except Exception as e:
-        return {"error": f"Response format is incorrect or incomplete: {e}"}
+        return {"error": f"Response format is incorrect or incomplete: {e}"},print(gpt_response)
