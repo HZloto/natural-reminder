@@ -3,3 +3,4 @@ credentials.json
 reminders.csv
 credentials.json
 *.pyc
+.env
