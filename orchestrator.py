@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 import os
+import json
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI'))
@@ -30,12 +31,25 @@ def query_gpt_for_reminders(messages, prompt):
 
     # Attempt to parse the response
     try:
-        parts = gpt_response.split(',')
-        action, reminder_name, reminder_date = (part.split(':')[1].strip().strip('\'"') for part in parts)
+        # Assuming the response from GPT is a JSON-formatted string
+        # Convert the string response to a dictionary
+        response_dict = json.loads(gpt_response)
+        
+        # Check if all required keys are in the response
+        if all(key in response_dict for key in ['action']):
+            return response_dict
+        else:
+            # Missing one or more keys, return an error
+            return {
+                "error": "Response format is incorrect or incomplete: missing 'action')"
+            }
+    except json.JSONDecodeError as e:
+        # Handle case where response is not a valid JSON
         return {
-            "action": action,
-            "reminder_name": reminder_name,
-            "reminder_date": reminder_date
+            "error": f"Failed to parse response as JSON: {e}"
         }
     except Exception as e:
-        return {"error": f"Response format is incorrect or incomplete: {e}"},print(gpt_response)
+        # General error handling
+        return {
+            "error": f"Unexpected error: {e}"
+        }
