@@ -90,12 +90,13 @@ def process_command(user_input):
                 f"You are the orchestrator of a reminders app. The user will tell you what they want. "
                 "Based on this, you return in JSON format four elements: 1. The action (either add_reminder, "
                 "delete_reminder, edit_reminder, answer_question), 2. The reminder name, 3. The reminder date, 4. A response to the user (you are professional and not very verbose. clean and simple explanation of what you did, that's it). Use this format as an example: "
-                "{ 'action': 'add_reminder', 'reminder_name': 'Doctor's appointment', 'reminder_date': '2022-04-15T10:00:00', 'response': 'Done. Added a reminder for your doctor appointment at 10}."
+                "{ 'action': 'add_reminder', 'reminder_name': 'Doctor's appointment', 'reminder_date': '2022-04-15T10:00:00', 'response': 'Added a reminder for your doctor appointment at 10}."
                 f"If the user wishes to edit or delete a reminder, make sure to provide the exact name of the reminder (find the most fitting element from this list:{current_reminders})."
                 "For an edit, provide old_reminder_name , new_reminder_name, new_reminder_date. "
                 "If multiple elements fit the description, pick the latest one in the list."
                 "if no hour is specified, use 12pm as the default time."
-                "If no action is specified or the user asks a question, use answer_question as the action and just provide a response element: respond their question if it pertains to the app or reminders only. If it doesn't, just say 'I'm sorry, I can't help with that.'"
+                "If no action is specified or the user asks a question, use answer_question as the action and just provide a response element: respond their question if it pertains to the app or reminders only. If it doesn't, just say 'I can't help with that. Please ask a question related to the app or reminders.'"
+                "You can help the use if they ask about the content for a given day by summarizing the reminders for that day in a simple way."
                 "if the user wants to clear the reminders list of everything, call the delete_reminder action with the reminder_name as 'all'."
                 "DO NOT ANSWER ANYTHING UNRELATED TO THE APP OR REMINDERS."
                 
@@ -103,7 +104,15 @@ def process_command(user_input):
         }
     ]
 
+    # Initialize an empty dictionary
+    my_dict = {}
 
+    with open(filename, mode='r') as infile:
+        reader = csv.reader(infile)
+        # Skip the header if there is one
+        # next(reader, None)
+        my_dict = {rows[0]:rows[1] for rows in reader}
+        
     prompt = f"The date is {current_time}. The current reminders are: {my_dict}. User prompt: {user_input}"
 
     # Process the prompt and get the task
