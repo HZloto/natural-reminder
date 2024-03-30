@@ -61,6 +61,7 @@ messages = [
             "if no hour is specified, use 12pm as the default time."
             "If no action is specified or the user asks a question, use answer_question as the action and just provide a response element: respond their question if it pertains to the app or reminders only. If it doesn't, just say 'I'm sorry, I can't help with that.'"
             "if the user wants to clear the reminders list of everything, call the delete_reminder action with the reminder_name as 'all'."
+            "DO NOT ANSWER ANYTHING UNRELATED TO THE APP OR REMINDERS."
             
         )
     }
@@ -102,7 +103,8 @@ def main():
         # Execute the corresponding action
         action = orch_task['action']
 
-        print("Fesses",orch_task)
+        # Debug
+        # print("ORCH TASK:",orch_task)
         print(orch_task['response'])
 
 
