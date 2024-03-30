@@ -20,7 +20,7 @@ def load_reminders(filename):
             # Parse the ISO 8601 date string to a datetime object
             reminder_date = datetime.fromisoformat(reminder['reminder_date'])
             # Reformat the date to a more readable string
-            reminder['reminder_date'] = reminder_date.strftime("%B %d, %Y, %I:%M %p")
+            reminder['reminder_date'] = reminder_date.strftime("%B %d, %I:%M %p")
         return reminders
     except FileNotFoundError:
         return []
@@ -31,33 +31,147 @@ current_reminders = load_reminders(filename)
 HTML_TEMPLATE = """
 <!doctype html>
 <html>
-<head><title>Reminder App</title></head>
+<head>
+    <title>NextUp</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e7e7e7;
+        }
+        .app-name {
+            font-weight: bold;
+            font-size: 24px;
+            margin: 0;
+        }
+        .app-description {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #f9f9f9; /* Very slight grey color */
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        .app-description h4 {
+            font-size: 18px;
+            margin-top: 0;
+        }
+        .close {
+            cursor: pointer;
+            float: right;
+            font-size: 20px;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100% - 60px);
+            padding: 20px; /* Adjusted padding for breathing room */
+        }
+        .chat-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto; /* Added top & bottom margin for equal spacing */
+        }
+        .messages-container, .reminder-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow-y: auto;
+        }
+        .message, .reminder {
+            padding: 10px 20px;
+            margin-bottom: 8px;
+            border-radius: 20px;
+        }
+        .reminder {
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .reminder-name {
+            font-weight: bold;
+        }
+        .user-message { background-color: #dcf8c6; align-self: flex-end; }
+        .system-message { background-color: #f0f0f0; align-self: flex-start; }
+        .input-area { display: flex; gap: 10px; margin-top: 20px; }
+        textarea {
+            flex-grow: 1;
+            border-radius: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            resize: none; /* Disables the resize option */
+        }
+        button { border-radius: 20px; }
+        .reminder-container > strong {
+            display: block;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
 <body>
-  <h2>Enter your reminder command</h2>
-  <form method="post">
-    <textarea name="command" rows="4" cols="50"></textarea><br>
-    <input type="submit" value="Submit">
-  </form>
-  {% if response %}
-    <h3>Response:</h3>
-    <p>{{ response }}</p>
-  {% endif %}
-  
-  <h3>Current Reminders:</h3>
-  <table border="1">
-    <tr>
-      <th>Reminder Name</th>
-      <th>Reminder Date</th>
-    </tr>
-    {% for reminder in reminders %}
-    <tr>
-      <td>{{ reminder.reminder_name }}</td>
-      <td>{{ reminder.reminder_date }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+    <header>
+        <div class="app-name">NextUp</div>
+    </header>
+    <div class="app-description">
+        <span class="close" onclick="this.parentElement.style.display='none';">&times;</span>
+        <h4>NextUp helps you stay on top of your tasks with simple, daily reminders. Organize your day effortlessly.</h4>
+    </div>
+    <div class="chat-container">
+        <div class="chat-box">
+            <div class="messages-container d-flex flex-column">
+                <!-- Messages will be dynamically inserted here -->
+                {% for message in messages %}
+                <div class="message {{ message.role }}-message">{{ message.content }}</div>
+                {% endfor %}
+            </div>
+            <form class="input-area" method="post">
+                <!-- Added placeholder attribute -->
+                <textarea name="command" rows="1" placeholder="Ex: Call parents tonight at 6"></textarea>
+                <button type="submit" class="btn btn-primary">Send</button>
+            </form>
+            {% if reminders %}
+            <div class="reminder-container">
+                <strong>Your Reminders:</strong> <!-- Title renamed and centered -->
+                {% for reminder in reminders %}
+                <div class="reminder">
+                    <span class="reminder-name">{{ reminder.reminder_name }}</span>
+                    <span>{{ reminder.reminder_date }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        document.querySelector('textarea[name="command"]').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Prevent default to avoid newline
+                this.form.submit(); // Submit form
+            }
+        });
+    </script>
 </body>
 </html>
+
 """
 
 
@@ -66,13 +180,18 @@ def home():
     if request.method == 'POST':
         user_input = request.form['command']
         response = process_command(user_input)
-        # Reload the reminders here to ensure we have the latest list after processing the command
         reminders = load_reminders(filename)
-        return render_template_string(HTML_TEMPLATE, response=response, reminders=reminders)
+        messages = [
+            {"role": "user", "content": user_input},
+            {"role": "system", "content": response}
+        ]
+        return render_template_string(HTML_TEMPLATE, messages=messages, reminders=reminders)
     
-    # For a GET request, we also load the reminders to ensure the page loads with the current reminders list
-    reminders = load_reminders(filename)  # Ensure this is outside the if block to cover both GET and POST
-    return render_template_string(HTML_TEMPLATE, response=None, reminders=reminders)
+    reminders = load_reminders(filename)
+    messages = [
+        {"role": "system", "content": "Welcome to the Reminder App. What can I do for you today?"}
+    ]
+    return render_template_string(HTML_TEMPLATE, messages=messages, reminders=reminders)
 
 
 def process_command(user_input):
