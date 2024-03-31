@@ -7,6 +7,7 @@ from reminders import origin_write_reminder, origin_edit_reminder, origin_delete
 from orchestrator import query_gpt_for_reminders
 from main import *
 
+
 app = Flask(__name__)
 
 
@@ -15,12 +16,33 @@ filename = "reminders_db.csv"
 def load_reminders(filename):
     try:
         df = pd.read_csv(filename)
-        reminders = df.to_dict('records')  # Converts the DataFrame into a list of dictionaries
-        for reminder in reminders:
-            # Parse the ISO 8601 date string to a datetime object
-            reminder_date = datetime.fromisoformat(reminder['reminder_date'])
-            # Reformat the date to a more readable string
-            reminder['reminder_date'] = reminder_date.strftime("%B %d, %I:%M %p")
+        # Convert the 'reminder_date' column to datetime
+        df['reminder_date'] = pd.to_datetime(df['reminder_date'], errors='coerce')
+        # Sort the DataFrame by the 'reminder_date' column
+        df.sort_values(by='reminder_date', inplace=True)
+
+        # Get today's date
+        today = datetime.now().date()
+
+        reminders = []
+        for _, row in df.iterrows():
+            reminder_date = row['reminder_date']
+            # If the date is today, change to "Today"
+            if reminder_date.date() == today:
+                display_date = "Today"
+            else:
+                display_date = reminder_date.strftime("%B %d")
+
+            # If there is a specific hour, add it to the display
+            if reminder_date.time() != datetime.min.time():
+                display_time = reminder_date.strftime("%I:%M %p")
+                display_date += f" at {display_time}"
+
+            reminders.append({
+                'reminder_name': row['reminder_name'],
+                'reminder_date': display_date
+            })
+        
         return reminders
     except FileNotFoundError:
         return []
@@ -33,96 +55,155 @@ HTML_TEMPLATE = """
 <html>
 <head>
     <title>NextUp</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e7e7e7;
-        }
-        .app-name {
-            font-weight: bold;
-            font-size: 24px;
-            margin: 0;
-        }
-        .app-description {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #f9f9f9; /* Very slight grey color */
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 1000;
-        }
-        .app-description h4 {
-            font-size: 18px;
-            margin-top: 0;
-        }
-        .close {
-            cursor: pointer;
-            float: right;
-            font-size: 20px;
-        }
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: calc(100% - 60px);
-            padding: 20px; /* Adjusted padding for breathing room */
-        }
-        .chat-box {
-            width: 100%;
-            max-width: 600px;
-            margin: 20px auto; /* Added top & bottom margin for equal spacing */
-        }
-        .messages-container, .reminder-container {
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            overflow-y: auto;
-        }
-        .message, .reminder {
-            padding: 10px 20px;
-            margin-bottom: 8px;
-            border-radius: 20px;
-        }
-        .reminder {
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .reminder-name {
-            font-weight: bold;
-        }
-        .user-message { background-color: #dcf8c6; align-self: flex-end; }
-        .system-message { background-color: #f0f0f0; align-self: flex-start; }
-        .input-area { display: flex; gap: 10px; margin-top: 20px; }
-        textarea {
-            flex-grow: 1;
-            border-radius: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            resize: none; /* Disables the resize option */
-        }
-        button { border-radius: 20px; }
-        .reminder-container > strong {
-            display: block;
-            text-align: center;
-            margin-bottom: 10px;
-        }
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: 'Nunito', sans-serif;
+        background-color: #F7F7F7;
+    }
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 40px;
+        background: #393E46;
+        color: white;
+    }
+    .app-name {
+        font-weight: bold;
+        font-size: 32px;
+    }
+    .app-description {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+    .app-description h4 {
+        font-size: 18px;
+    }
+    button.btn {
+        border-radius: 20px;
+        padding: 15px 25px;
+        background-color: #393E46; /* Changed to desired background color */
+        color: white; /* Text color */
+        font-size: 16px;
+        font-weight: bold;
+        border: 2px solid #393E46; /* Border color same as background */
+        transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+    }
+
+    button:hover {
+        background-color: #5b6370; /* Slightly lighter shade on hover */
+    }
+
+    .close {
+        cursor: pointer;
+        float: right;
+        font-size: 24px;
+        color: #393E46;
+    }
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px;
+        height: auto;
+    }
+    .chat-box {
+        width: 80%;
+        max-width: 800px;
+        margin: 60px auto;
+        background: #F7F7F7;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding-bottom: 20px;
+    }
+    .messages-container, .reminder-container {
+        border: none;
+        padding: 30px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .message {
+        padding: 15px 20px;
+        margin-bottom: 12px;
+        border-radius: 20px;
+        max-width: 80%;
+    }
+    .reminder {
+        background-color: #6D9886;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 10px; /* Added for spacing */
+    }
+    .reminder-name {
+        font-weight: bold;
+        color: #F7F7F7;
+    }
+    .reminder-date {
+        color: #F7F7F7;
+    }
+    .user-message {
+        background-color: #F2E7D5;
+        color: #393E46;
+        align-self: flex-end;
+    }
+    .system-message {
+        background-color: #E8E8E8;
+        align-self: flex-start;
+    }
+    .input-area {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        margin-left: 20px;
+        margin-right: 20px;
+        align-items: center;
+    }
+    textarea {
+        flex-grow: 1;
+        border-radius: 20px;
+        padding: 15px;
+        border: 2px solid #5b6370;
+        background-color: #FFFFFF;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+    }
+    textarea:focus {
+        border-color: #6D9886;
+        box-shadow: 0 0 0 0.2rem rgba(109, 152, 134, 0.25);
+    }
+    button {
+        border-radius: 20px;
+        padding: 15px 25px;
+        background-color: #6D9886; /* Button now has a background color */
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        border: 2px solid #6D9886;
+    }
+    button:hover {
+        background-color: #56776c;
+    }
+    .reminder-container > strong {
+        display: block;
+        text-align: center;
+        margin-bottom: 15px;
+        color: #6D9886;
+        font-size: 20px;
+    }
     </style>
 </head>
 <body>
@@ -131,28 +212,28 @@ HTML_TEMPLATE = """
     </header>
     <div class="app-description">
         <span class="close" onclick="this.parentElement.style.display='none';">&times;</span>
-        <h4>NextUp helps you stay on top of your tasks with simple, daily reminders. Organize your day effortlessly.</h4>
+        <h4>NextUp helps you stay on top of your tasks with simple, daily reminders. Ask NextUp to add, edit or remove reminders.</h4>
     </div>
     <div class="chat-container">
         <div class="chat-box">
-            <div class="messages-container d-flex flex-column">
+            <div class="messages-container d-flex flex-column-reverse">
+                <!-- Reverse order to keep input box at bottom -->
                 <!-- Messages will be dynamically inserted here -->
                 {% for message in messages %}
                 <div class="message {{ message.role }}-message">{{ message.content }}</div>
                 {% endfor %}
             </div>
             <form class="input-area" method="post">
-                <!-- Added placeholder attribute -->
                 <textarea name="command" rows="1" placeholder="Ex: Call parents tonight at 6"></textarea>
-                <button type="submit" class="btn btn-primary">Send</button>
+                <button type="submit" class="btn">Send</button>
             </form>
             {% if reminders %}
             <div class="reminder-container">
-                <strong>Your Reminders:</strong> <!-- Title renamed and centered -->
+                <strong>Your Reminders</strong>
                 {% for reminder in reminders %}
                 <div class="reminder">
                     <span class="reminder-name">{{ reminder.reminder_name }}</span>
-                    <span>{{ reminder.reminder_date }}</span>
+                    <span class="reminder-date">{{ reminder.reminder_date }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -164,13 +245,16 @@ HTML_TEMPLATE = """
     <script>
         document.querySelector('textarea[name="command"]').addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); // Prevent default to avoid newline
-                this.form.submit(); // Submit form
+                e.preventDefault();
+                this.form.submit();
             }
         });
     </script>
 </body>
 </html>
+
+
+
 
 """
 
@@ -212,8 +296,9 @@ def process_command(user_input):
                 "{ 'action': 'add_reminder', 'reminder_name': 'Doctor's appointment', 'reminder_date': '2022-04-15T10:00:00', 'response': 'Added a reminder for your doctor appointment at 10}."
                 f"If the user wishes to edit or delete a reminder, make sure to provide the exact name of the reminder (find the most fitting element from this list:{current_reminders})."
                 "For an edit, provide old_reminder_name , new_reminder_name, new_reminder_date. "
+                "Edit example format: { 'action': 'edit_reminder', 'old_reminder_name': 'Doctor's appointment', 'new_reminder_name': 'Dentist appointment', 'new_reminder_date': '2022-04-15T10:00:00'}."
                 "If multiple elements fit the description, pick the latest one in the list."
-                "if no hour is specified, use 12pm as the default time."
+                "if no hour is specified, only provide the day."
                 "If no action is specified or the user asks a question, use answer_question as the action and just provide a response element: respond their question if it pertains to the app or reminders only. If it doesn't, just say 'I can't help with that. Please ask a question related to the app or reminders.'"
                 "You can help the use if they ask about the content for a given day by summarizing the reminders for that day in a simple way."
                 "if the user wants to clear the reminders list of everything, call the delete_reminder action with the reminder_name as 'all'."
